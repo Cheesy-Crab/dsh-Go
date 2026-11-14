@@ -59,6 +59,12 @@
         android:extractNativeLibs="true"
         android:requestLegacyExternalStorage="true"
         android:networkSecurityConfig="@xml/network_security_config">
+        <!-- fork: health · 自动初始化健康本地接口（不修改上游 Application）。
+             真正连手环时再加 BLUETOOTH_* 权限。 -->
+        <provider
+            android:name=".health.HealthBootstrapProvider"
+            android:authorities="${applicationId}.health.bootstrap"
+            android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
