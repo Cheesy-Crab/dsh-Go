@@ -2,8 +2,14 @@ name: Build APK
 
 # 上游没有 APK 的 CI，只在本地用 tooling/build-apk.sh（Linux 专用）。
 # 这里补一个云端构建：推代码就能拿到可安装的 arm64 release APK。
+# 手动触发时填 release_tag，还会把 APK 发布成 Release（免登录直链）。
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: '发布成 Release 的 tag，例如 v1.0.16-fork.1（留空只构建）'
+        required: false
+        type: string
   push:
     branches: [main]
     paths:
@@ -11,7 +17,7 @@ on:
       - '.github/workflows/build-apk.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   apk:
@@ -63,3 +69,28 @@ jobs:
           path: app/build/app/outputs/flutter-apk/*.apk
           if-no-files-found: error
           retention-days: 14
+
+      # 手动触发且填了 tag 时，直接把 APK 发成 Release。
+      # 资产名固定为 dsh-go-arm64.apk，于是 /releases/latest/download/dsh-go-arm64.apk 永远可用。
+      - name: Publish release
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        working-directory: app
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release_tag }}
+        run: |
+          APK=$(ls build/app/outputs/flutter-apk/*-arm64-release.apk | head -1)
+          echo "APK=$APK"
+          cat > /tmp/notes.md <<'EOF'
+          基于上游 `ccch1mneyyy/dsh-Go` 的 fork 构建，未改业务代码。
+
+          - 构建：GitHub Actions，Flutter 3.47.7 + JDK 17
+          - ABI：arm64-v8a（Android 8.0+）
+          - 与官方包签名不同，**不能覆盖安装**，需要先卸载官方版
+          - 许可证：AGPL-3.0（随源仓库）
+          EOF
+          gh release create "$TAG" "$APK#dsh-go-arm64.apk" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "dsh-Go ${TAG}（fork 构建）" \
+            --notes-file /tmp/notes.md \
+            --latest
