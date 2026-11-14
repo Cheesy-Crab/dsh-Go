@@ -79,8 +79,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.release_tag }}
         run: |
-          APK=$(ls build/app/outputs/flutter-apk/*-arm64-release.apk | head -1)
-          echo "APK=$APK"
+          mkdir -p /tmp/rel
+          # 资产名要固定，否则 /releases/latest/download/<名字> 会随 flavor 输出名漂移
+          cp "$(ls build/app/outputs/flutter-apk/*-arm64-release.apk | head -1)" /tmp/rel/dsh-go-arm64.apk
+          ls -lh /tmp/rel/dsh-go-arm64.apk
           cat > /tmp/notes.md <<'EOF'
           基于上游 `ccch1mneyyy/dsh-Go` 的 fork 构建，未改业务代码。
 
@@ -89,7 +91,7 @@ jobs:
           - 与官方包签名不同，**不能覆盖安装**，需要先卸载官方版
           - 许可证：AGPL-3.0（随源仓库）
           EOF
-          gh release create "$TAG" "$APK#dsh-go-arm64.apk" \
+          gh release create "$TAG" /tmp/rel/dsh-go-arm64.apk \
             --repo "$GITHUB_REPOSITORY" \
             --title "dsh-Go ${TAG}（fork 构建）" \
             --notes-file /tmp/notes.md \
