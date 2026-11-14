@@ -1,0 +1,15 @@
+﻿A  .github/workflows/attach-update-manifest.yml
+A  .github/workflows/build-apk-full.yml
+A  .github/workflows/build-apk.yml
+A  .github/workflows/verify-release.yml
+M  app/lib/update/update_config.dart
+A  docs/fork-sync.md
+A  docs/health-architecture.png
+A  docs/health-integration.md
+A  docs/shizuku-self-update.md
+A  fork/upstream-base.txt
+A  fork/version.txt
+M  runtime/build-runtime.sh
+A  tools/draw-health-diagram-v2.py
+A  tools/draw-health-diagram.py
+A  tools/sync-upstream.sh
