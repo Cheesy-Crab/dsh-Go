@@ -85,8 +85,14 @@ jobs:
           runtime/build-runtime.sh arm64-v8a
           du -sh runtime/out runtime/out/arm64-v8a 2>/dev/null || true
 
-      - name: Build libtawcroot
-        run: python3 runtime/tawcroot/build.py
+      # 可选的 tawcroot 启动方式：需要 NDK 28.2.13676358，runner 上没有。
+      # 源码注释写明「Without it the app still builds」，缺了只是这个启动方式不可用，
+      # 不影响 proot 主路径，所以不阻断构建。
+      - name: Build libtawcroot (optional)
+        continue-on-error: true
+        run: |
+          python3 runtime/tawcroot/build.py || \
+            echo "::warning::libtawcroot 未构建（缺 NDK 28.2.13676358），tawcroot 启动方式将不可用"
 
       - name: Check runtime bundle
         run: python3 tooling/check_runtime_bundle.py arm64
