@@ -1,0 +1,83 @@
+name: Attach update manifest
+
+# 给某个已有 Release 补上静态更新源需要的两个资产：
+#   app.apk        —— 安装包（固定名，供 /releases/latest/download/app.apk 使用）
+#   update.json    —— 清单：versionCode / versionName / sizeBytes / sha256 / notes
+#
+# 用法：Actions 里手动运行，填已有 tag（例如 v1.0.16-fork.1）。
+# 这样「能不能升级」的判断由 APK 里真实的 versionCode 决定，不用手写。
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '目标 Release 的 tag'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download existing APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          mkdir -p out
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*arm64-release.apk' --dir out
+          ls -lh out/
+
+      - name: Read versionCode from APK
+        id: ver
+        run: |
+          APK=$(ls out/*arm64-release.apk | head -1)
+          AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)
+          echo "aapt2=$AAPT"
+          BADGING=$("$AAPT" dump badging "$APK" | head -1)
+          echo "$BADGING"
+          CODE=$(echo "$BADGING" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p")
+          NAME=$(echo "$BADGING" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")
+          echo "code=$CODE name=$NAME"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Build update.json
+        env:
+          TAG: ${{ inputs.tag }}
+          CODE: ${{ steps.ver.outputs.code }}
+          NAME: ${{ steps.ver.outputs.name }}
+        run: |
+          APK=$(ls out/*arm64-release.apk | head -1)
+          cp "$APK" out/app.apk
+          SIZE=$(stat -c %s out/app.apk)
+          SHA=$(sha256sum out/app.apk | cut -d' ' -f1)
+          python3 - "$TAG" "$CODE" "$NAME" "$SIZE" "$SHA" <<'PY'
+          import json, sys
+          tag, code, name, size, sha = sys.argv[1:6]
+          manifest = {
+              "versionCode": int(code),
+              "versionName": name,
+              "sizeBytes": int(size),
+              "sha256": sha,
+              "notes": f"fork 构建 {tag}：基于上游 ccch1mneyyy/dsh-Go，未改业务代码。",
+              "publishedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat().replace("+00:00", "Z"),
+              "url": "app.apk",
+          }
+          open("out/update.json", "w", encoding="utf-8").write(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+          print(json.dumps(manifest, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          gh release upload "$TAG" out/app.apk out/update.json --repo "$GITHUB_REPOSITORY" --clobber
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | "\(.name)  \(.size)"'
