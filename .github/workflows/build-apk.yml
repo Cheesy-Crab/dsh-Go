@@ -1,4 +1,4 @@
-name: Build APK (slim)
+name: Build APK (slim / dev)
 
 # 上游没有 APK 的 CI（只在本地跑 tooling/build-apk.sh）。
 # 这里补云端构建，并在手动触发时发布 Release，供 App 内自更新使用。
@@ -108,19 +108,19 @@ jobs:
           VERSION=$(sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
           echo "版本: $VERSION"
           mkdir -p /tmp/rel
-          cp "$(ls build/app/outputs/flutter-apk/*-arm64-release.apk | head -1)" "/tmp/rel/dsh-go-${VERSION}-arm64.apk"
+          cp "$(ls build/app/outputs/flutter-apk/*-arm64-release.apk | head -1)" "/tmp/rel/dsh-go-${VERSION}-arm64-slim.apk"
           ls -lh /tmp/rel/
           cat > /tmp/notes.md <<EOF
-          **精简版**：不含端上运行环境，适合「改用远程主机」连接电脑的用法。完整版（带本机模式）见 Build APK (full)。
+          **精简版（开发用）**：不含端上运行环境，构建快，用于开发新功能时快速迭代。正式发布走 Build APK (full)。
 
-          - 自更新源：本仓库的 latest release
+          - 开发/调试用，不参与 App 内自更新（latest 留给完整版）
           - 构建：GitHub Actions，Flutter 3.47.7 + JDK 17
           - ABI：arm64-v8a（Android 8.0+）
           - 签名与官方版不同：**首次安装需先卸载官方版**，之后可在 App 内升级
           - 许可证：AGPL-3.0（随源仓库）
           EOF
-          gh release create "$TAG" "/tmp/rel/dsh-go-${VERSION}-arm64.apk" \
+          gh release create "$TAG" "/tmp/rel/dsh-go-${VERSION}-arm64-slim.apk" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "dsh-Go ${VERSION}（fork）" \
+            --title "dsh-Go ${VERSION} 开发版（精简）" \
             --notes-file /tmp/notes.md \
-            --latest
+            --prerelease
