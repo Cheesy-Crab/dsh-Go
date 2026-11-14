@@ -1,4 +1,4 @@
-name: Build APK
+name: Build APK (slim)
 
 # 上游没有 APK 的 CI（只在本地跑 tooling/build-apk.sh）。
 # 这里补云端构建，并在手动触发时发布 Release，供 App 内自更新使用。
@@ -111,7 +111,7 @@ jobs:
           cp "$(ls build/app/outputs/flutter-apk/*-arm64-release.apk | head -1)" "/tmp/rel/dsh-go-${VERSION}-arm64.apk"
           ls -lh /tmp/rel/
           cat > /tmp/notes.md <<EOF
-          基于上游 \`ccch1mneyyy/dsh-Go\` 的 fork 构建。
+          **精简版**：不含端上运行环境，适合「改用远程主机」连接电脑的用法。完整版（带本机模式）见 Build APK (full)。
 
           - 自更新源：本仓库的 latest release
           - 构建：GitHub Actions，Flutter 3.47.7 + JDK 17
