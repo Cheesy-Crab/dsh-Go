@@ -70,17 +70,26 @@ jobs:
         working-directory: app
         run: flutter pub get
 
+      # 版本号放在 fork/version.txt，pubspec 跟上游保持一致，减少 rebase 冲突
+      - name: Read fork version
+        run: |
+          VERSION=$(tr -d ' \r\n' < fork/version.txt)
+          [ -n "$VERSION" ] || { echo "::error::fork/version.txt 是空的"; exit 1; }
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "fork 版本：$VERSION"
+
       - name: Build arm64 release APK
         working-directory: app
         run: |
           set -euo pipefail
           BUILD_NUMBER=$(date -u +%m%d%H%M)
-          echo "versionCode=$BUILD_NUMBER"
+          echo "versionName=$VERSION versionCode=$BUILD_NUMBER"
           # 关掉上游的自建镜像/子频道/加速器：否则它会先问 dl.dshtui.com，
           # 拿到的是上游版本，而不是我们这个 fork 的。
           flutter build apk \
             --release \
             --flavor arm64 \
+            --build-name "$VERSION" \
             --build-number "$BUILD_NUMBER" \
             --dart-define=DSH_UPDATE_MIRROR= \
             --dart-define=DSH_UPDATE_FEED= \
@@ -105,7 +114,6 @@ jobs:
           TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
-          VERSION=$(sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
           echo "版本: $VERSION"
           mkdir -p /tmp/rel
           cp "$(ls build/app/outputs/flutter-apk/*-arm64-release.apk | head -1)" "/tmp/rel/dsh-go-${VERSION}-arm64-slim.apk"
