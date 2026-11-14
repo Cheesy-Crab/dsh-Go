@@ -82,7 +82,7 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x runtime/build-runtime.sh
-          runtime/build-runtime.sh arm64
+          runtime/build-runtime.sh arm64-v8a
           du -sh runtime/out runtime/out/arm64-v8a 2>/dev/null || true
 
       - name: Build libtawcroot
