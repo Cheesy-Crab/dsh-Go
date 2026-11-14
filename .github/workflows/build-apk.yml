@@ -41,7 +41,9 @@ jobs:
         working-directory: app
         run: flutter pub get
 
-      # versionCode 用构建时间戳（MMDDHHmm），保证每次安装都能覆盖升级
+      # 这个工程按 ABI 分了 arm64 / x64 两个 flavor，必须显式 --flavor，
+      # 否则 flutter 会去找不存在的 assembleRelease 任务。
+      # versionCode 用构建时间戳（MMDDHHmm），保证覆盖升级时递增。
       - name: Build arm64 release APK
         working-directory: app
         run: |
@@ -49,12 +51,15 @@ jobs:
           echo "versionCode=$BUILD_NUMBER"
           flutter build apk \
             --release \
-            --target-platform android-arm64 \
+            --flavor arm64 \
             --build-number "$BUILD_NUMBER"
+          echo "--- 产物 ---"
+          ls -lh build/app/outputs/flutter-apk/
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: dsh-go-arm64-${{ github.run_number }}
-          path: app/build/app/outputs/flutter-apk/app-release.apk
+          path: app/build/app/outputs/flutter-apk/*.apk
+          if-no-files-found: error
           retention-days: 14
