@@ -107,17 +107,43 @@ git fetch --unshallow --filter=blob:none
 | rebase 后提交数暴涨 | 用了 `git rebase upstream/main` 而 merge-base 不对 | 用 `--onto` 限定范围 |
 | 冲突出现在 `pubspec.yaml` | 上游改了版本号 | 保留我们的版本；或改用 `fork/version.txt`（见第六节） |
 
-## 六、后续可做的三个减冲突改造（未做）
+## 六、两个减冲突改造（已完成）
 
-1. **版本号移出 `pubspec.yaml`**
-   上游每次发版都会改这个文件。改成 `fork/version.txt`，CI 构建时用
-   `--build-name=$(cat fork/version.txt)` 传入。
+### 1. 版本号外置 ✅
 
-2. **proot pin 移出 `runtime/build-runtime.sh`**
-   上游高频改 pin。改成 `fork/runtime-pins.env`，脚本里加一行 `source`。
+`app/pubspec.yaml` 现在**和上游完全一致**，我们的版本号在：
 
-3. **一键同步脚本 `tools/sync-upstream.sh`**
-   把「fetch → rebase → 校验 delta → 提示构建」打包成一条命令。
+```
+fork/version.txt   →  1.0.18
+```
+
+CI 构建时读取它，用 `--build-name` 传进 Flutter：
+
+```yaml
+- name: Read fork version
+  run: VERSION=$(tr -d ' \r\n' < fork/version.txt); echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+```
+
+**版本号规则**：fork 版本必须 ≥ 上游 `pubspec` 的版本。
+每次同步后看一眼 `app/pubspec.yaml`，如果上游已经追上来（甚至超过），
+就把 `fork/version.txt` 往上加一位再发版。
+
+### 2. 一键同步脚本 ✅
+
+```bash
+tools/sync-upstream.sh --dry-run   # 只预览
+tools/sync-upstream.sh             # 真同步
+```
+
+流程：检查工作区 → 读 `fork/upstream-base.txt` → `git fetch upstream main`
+→ `git rebase --onto upstream/main <base> main` → 对比 `fork/delta.txt`
+→ 更新 base 文件 → 提示提交和推送。
+
+### 3. proot pin 外置（未做）
+
+`runtime/build-runtime.sh` 里的三行 pin 仍是直接改上游文件。
+上游高频改 pin，所以这里仍是冲突高发区；如果以后冲突变频繁，再按
+`fork/version.txt` 的思路把它移到 `fork/runtime-pins.env`。
 
 ## 七、同步后校验清单
 
