@@ -1,0 +1,42 @@
+name: Verify release APK
+
+# 下载某个 Release 的 APK，打印签名证书指纹和 versionCode/versionName。
+# 用来确认发布包确实是用仓库 secrets 里那把 keystore 签的。
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag，例如 v1.0.17'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          mkdir -p out
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.apk' --dir out
+          ls -lh out/
+
+      - name: Verify signature and metadata
+        run: |
+          set -euo pipefail
+          APK=$(ls out/*.apk | head -1)
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "== apksigner verify =="
+          "$BT/apksigner" verify --print-certs "$APK"
+          echo "== aapt2 badging =="
+          "$BT/aapt2" dump badging "$APK" | head -2
+          echo "== sha256 =="
+          sha256sum "$APK"
