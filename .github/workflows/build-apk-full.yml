@@ -3,8 +3,8 @@ name: Build APK (full)
 # 完整版：带上端上运行环境（Ubuntu + Node + DSH 的 rootfs + proot），
 # 支持「本机模式」。构建比精简版慢很多（40–60 分钟），所以单独一个工作流。
 #
-# 发布时标成 prerelease，这样 /releases/latest 仍然指向精简版，
-# App 内自更新不会被带到完整版上来。
+# 发布为正式 Release（占 latest），App 内自更新的目标就是它。
+
 on:
   workflow_dispatch:
     inputs:
@@ -126,7 +126,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish release (prerelease)
+      - name: Publish release
         if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
         working-directory: app
         env:
@@ -138,12 +138,12 @@ jobs:
           mkdir -p /tmp/rel
           cp "$(ls build/app/outputs/flutter-apk/*-arm64-release.apk | head -1)" "/tmp/rel/dsh-go-${VERSION}-arm64.apk"
           cat > /tmp/notes.md <<EOF
-          **完整版**：内置端上运行环境（Ubuntu + Node + DSH），支持本机模式。
+          **完整版（正式发布）**：内置端上运行环境（Ubuntu + Node + DSH），支持本机模式。
 
           - 版本：${VERSION}
           - 构建：GitHub Actions，Flutter 3.47.7 + JDK 17
           - ABI：arm64-v8a（Android 8.0+）
-          - 这是 prerelease，不会替换 /releases/latest（那是精简版）
+          - 正式发布版，占 /releases/latest，App 内自更新默认装这个
           - 签名与精简版相同，可互相覆盖安装
           - 许可证：AGPL-3.0
           EOF
@@ -151,4 +151,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "dsh-Go ${VERSION} 完整版" \
             --notes-file /tmp/notes.md \
-            --prerelease
+            --latest
