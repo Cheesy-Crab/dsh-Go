@@ -96,3 +96,37 @@ jobs:
             --title "dsh-Go ${TAG}（fork 构建）" \
             --notes-file /tmp/notes.md \
             --latest
+
+      # 再补上静态更新源需要的两个资产：app.apk + update.json
+      # versionCode 从 APK 里读，保证和安装后的包一致
+      - name: Attach update manifest
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)
+          BADGING=$("$AAPT" dump badging /tmp/rel/dsh-go-arm64.apk | head -1)
+          CODE=$(echo "$BADGING" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p")
+          NAME=$(echo "$BADGING" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")
+          echo "versionCode=$CODE versionName=$NAME"
+          cp /tmp/rel/dsh-go-arm64.apk /tmp/rel/app.apk
+          SIZE=$(stat -c %s /tmp/rel/app.apk)
+          SHA=$(sha256sum /tmp/rel/app.apk | cut -d' ' -f1)
+          python3 - "$TAG" "$CODE" "$NAME" "$SIZE" "$SHA" > /tmp/rel/update.json <<'PY'
+          import json, sys, datetime
+          tag, code, name, size, sha = sys.argv[1:6]
+          print(json.dumps({
+              "versionCode": int(code),
+              "versionName": name,
+              "sizeBytes": int(size),
+              "sha256": sha,
+              "notes": f"fork 构建 {tag}：基于上游 ccch1mneyyy/dsh-Go，未改业务代码。",
+              "publishedAt": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
+              "url": "app.apk",
+          }, ensure_ascii=False, indent=2))
+          PY
+          cat /tmp/rel/update.json
+          gh release upload "$TAG" /tmp/rel/app.apk /tmp/rel/update.json \
+            --repo "$GITHUB_REPOSITORY" --clobber
