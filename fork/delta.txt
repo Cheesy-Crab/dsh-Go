@@ -1,4 +1,4 @@
-﻿A  .github/workflows/attach-update-manifest.yml
+A  .github/workflows/attach-update-manifest.yml
 A  .github/workflows/build-apk-full.yml
 A  .github/workflows/build-apk.yml
 A  .github/workflows/verify-release.yml
@@ -17,7 +17,6 @@ A  docs/shizuku-self-update.md
 A  fork/delta.txt
 A  fork/upstream-base.txt
 A  fork/version.txt
-M  runtime/build-runtime.sh
 A  tools/draw-ble-diagram.py
 A  tools/draw-health-diagram-v2.py
 A  tools/draw-health-diagram.py
