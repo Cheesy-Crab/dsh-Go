@@ -7,10 +7,10 @@
 
 | 项 | 值 |
 |---|---|
-| 最近一次同步 | 上游 `719fed0`（2026-11-14） |
-| 我们领先上游 | **15 笔提交** |
-| 我们的改动文件 | **10 个**（7 新增 + 3 修改） |
-| 最近一次 rebase 结果 | ✅ 15/15 干净应用，**零冲突** |
+| 最近一次同步 | 上游 `6db08d2`（2026-11-17） |
+| 我们领先上游 | **24 笔提交** |
+| 我们的改动文件 | **23 个**（21 新增 + 2 修改） |
+| 最近一次 rebase 结果 | 3 处冲突，都在 `app/pubspec.yaml` 的 `version:` 行 → **一律取上游版本**（fork 版本在 `fork/version.txt`，已外置） |
 
 ### 我们的 delta（改过的上游文件）
 
@@ -19,15 +19,20 @@ A .github/workflows/attach-update-manifest.yml
 A .github/workflows/build-apk-full.yml
 A .github/workflows/build-apk.yml
 A .github/workflows/verify-release.yml
-A docs/health-architecture.png
-A docs/health-integration.md
+M app/android/app/src/main/AndroidManifest.xml   ← 注册 health bootstrap provider
+A app/android/app/src/main/kotlin/.../health/*.kt（5 个）
+M app/lib/update/update_config.dart              ← updateRepo 指向本 fork（1 行）
+A docs/fork-sync.md
+A docs/health-architecture.png, docs/health-ble.png, docs/health-integration.md
 A docs/shizuku-self-update.md
-M app/lib/update/update_config.dart     ← updateRepo 指向本 fork（1 行）
-M app/pubspec.yaml                       ← 版本号（1 行）
-M runtime/build-runtime.sh               ← proot pin（3 行）
+A fork/delta.txt, fork/upstream-base.txt, fork/version.txt
+A tools/sync-upstream.sh, tools/draw-*.py
 ```
 
-新增文件永不冲突；冲突面只有那 3 个修改文件、5 行代码。
+新增文件永不冲突；冲突面只剩那 2 个修改文件（`AndroidManifest.xml`、`update_config.dart`）。
+
+> 2026-11-17 起，`app/pubspec.yaml` 和 `runtime/build-runtime.sh` 都不再算 delta：
+> 版本号外置到 `fork/version.txt`，proot pin 上游已跟随同一版本（我们的 rebase 提交自动变成空提交）。
 
 ## 二、一次性准备
 
@@ -105,7 +110,7 @@ git fetch --unshallow --filter=blob:none
 | `SSL_ERROR_SYSCALL` / `could not fetch ... from promisor remote` | 部分克隆回源时网络抖动 | 重试；或改用完整克隆 |
 | `no merge base` | 浅克隆太浅 | `git fetch --deepen=400` 或 `--unshallow` |
 | rebase 后提交数暴涨 | 用了 `git rebase upstream/main` 而 merge-base 不对 | 用 `--onto` 限定范围 |
-| 冲突出现在 `pubspec.yaml` | 上游改了版本号 | 保留我们的版本；或改用 `fork/version.txt`（见第六节） |
+| 冲突出现在 `pubspec.yaml` | 上游改了版本号 | 一律取上游版本（`git checkout --ours app/pubspec.yaml`），fork 版本在 `fork/version.txt` |
 
 ## 六、两个减冲突改造（已完成）
 
@@ -114,7 +119,7 @@ git fetch --unshallow --filter=blob:none
 `app/pubspec.yaml` 现在**和上游完全一致**，我们的版本号在：
 
 ```
-fork/version.txt   →  1.0.18
+fork/version.txt   →  1.1.1
 ```
 
 CI 构建时读取它，用 `--build-name` 传进 Flutter：
@@ -139,24 +144,24 @@ tools/sync-upstream.sh             # 真同步
 → `git rebase --onto upstream/main <base> main` → 对比 `fork/delta.txt`
 → 更新 base 文件 → 提示提交和推送。
 
-### 3. proot pin 外置（未做）
+### 3. proot pin（已随上游，无需再管）
 
-`runtime/build-runtime.sh` 里的三行 pin 仍是直接改上游文件。
-上游高频改 pin，所以这里仍是冲突高发区；如果以后冲突变频繁，再按
-`fork/version.txt` 的思路把它移到 `fork/runtime-pins.env`。
+`runtime/build-runtime.sh` 里的 proot pin 上游已经更新到我们用的 `5.1.107.102`，
+我们那笔 pin 提交在 rebase 时被自动判为空提交丢弃，delta 里不再包含这个文件。
+如果以后再出现上游 pin 比我们旧、需要先行的场景，再按 `fork/version.txt` 的思路把它移到
+`fork/runtime-pins.env`。
 
 ## 七、同步后校验清单
 
 ```bash
 # 1. 我们的提交数没变
-git rev-list --count upstream/main..main        # 应为 15
+git rev-list --count upstream/main..main        # 应为 24
 
-# 2. delta 文件还是那 10 个
+# 2. delta 文件还是那 23 个
 git diff --name-status upstream/main main
 
 # 3. 关键改动还在
 git grep -n "updateRepo = 'Cheesy-Crab/dsh-Go'" -- app/lib/update/update_config.dart
-git grep -n "PROOT_VERSION" -- runtime/build-runtime.sh
 
 # 4. 推送后看 CI
 #    Build APK (slim) 应当成功
