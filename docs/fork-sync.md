@@ -38,8 +38,8 @@ A tools/sync-upstream.sh, tools/draw-*.py
 ## 二、一次性准备
 
 ```bash
-# 加只读上游
-git remote add upstream https://github.com/ccch1mneyyy/dsh-Go.git
+# 加只读上游。走 SSH（这台机器上 HTTPS 到 GitHub / gh-proxy 时通时断，SSH 稳定）
+git remote add upstream ssh://git@github.com/ccch1mneyyy/dsh-Go.git
 
 # 记住冲突解法，下次自动应用
 git config rerere.enabled true
